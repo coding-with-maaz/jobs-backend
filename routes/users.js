@@ -4,21 +4,30 @@ const { body } = require('express-validator');
 const userController = require('../controllers/userController');
 const { auth, adminAuth } = require('../middleware/auth');
 
-// Validation middleware
-const validateUser = [
+// Registration validation middleware
+const validateStep2 = [
   body('name').notEmpty().trim().withMessage('Name is required'),
-  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
-  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
+  body('phone').notEmpty().trim().withMessage('Phone number is required'),
+  body('email').isEmail().normalizeEmail().withMessage('Valid email is required')
 ];
 
-const validateLogin = [
+const validateStep4 = [
+  body('password')
+    .isLength({ min: 6 })
+    .withMessage('Password must be at least 6 characters')
+];
+
+// Multi-step registration routes
+router.post('/register/step1', userController.registerStep1);
+router.post('/register/step2/:userId', validateStep2, userController.registerStep2);
+router.post('/register/step3/:userId', userController.registerStep3);
+router.post('/register/step4/:userId', validateStep4, userController.registerStep4);
+
+// Login route
+router.post('/login', [
   body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
   body('password').notEmpty().withMessage('Password is required')
-];
-
-// Public routes
-router.post('/register', validateUser, userController.register);
-router.post('/login', validateLogin, userController.login);
+], userController.login);
 
 // Protected routes
 router.get('/profile', auth, userController.getProfile);

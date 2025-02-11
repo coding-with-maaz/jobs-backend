@@ -5,6 +5,8 @@ const connectDB = require('./config/db');
 const jobRoutes = require('./routes/jobs');
 const categoryRoutes = require('./routes/categories');
 const userRoutes = require('./routes/users');
+const adminRoutes = require('./routes/admin');
+const dashboardRoutes = require('./routes/dashboard');
 
 // Connect to MongoDB
 connectDB();
@@ -19,7 +21,7 @@ const allowedOrigins = [
   'exp://localhost:19000',           // Expo Go app
   'https://*.expo.dev',              // Expo production
   'https://*.expo.io',               // Expo production (legacy)
-  'http://localhost:8081'
+  process.env.FRONTEND_URL           // Your production frontend URL
 ];
 
 app.use(cors({
@@ -49,11 +51,8 @@ app.use(express.json());
 app.use('/api/jobs', jobRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/users', userRoutes);
-
-app.get('/hello', (req, res) => {
-  res.send('Hello World');
-});
-
+app.use('/api/admin', adminRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
