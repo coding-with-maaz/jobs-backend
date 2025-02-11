@@ -50,6 +50,10 @@ app.use('/api/jobs', jobRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/users', userRoutes);
 
+app.get('/', (req, res) => {
+  res.send('Hello World');
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
