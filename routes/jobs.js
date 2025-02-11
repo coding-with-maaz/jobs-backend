@@ -1,3 +1,4 @@
+// routes/jobs.js
 const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
@@ -17,10 +18,15 @@ const validateJob = [
   body('application_url').notEmpty().trim().isURL().withMessage('Valid application URL is required')
 ];
 
-// Routes
+// Define the routes:
+// 1. GET '/' returns all jobs
 router.get('/', jobController.getAllJobs);
+// 2. GET '/search' for job search
 router.get('/search', jobController.searchJobs);
+// 3. GET '/:id' returns a single job by id
 router.get('/:id', jobController.getJobById);
+
+// Create, update, and delete routes
 router.post('/', validateJob, jobController.createJob);
 router.put('/:id', validateJob, jobController.updateJob);
 router.delete('/:id', jobController.deleteJob);

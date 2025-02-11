@@ -19,7 +19,7 @@ const allowedOrigins = [
   'exp://localhost:19000',           // Expo Go app
   'https://*.expo.dev',              // Expo production
   'https://*.expo.io',               // Expo production (legacy)
-  process.env.FRONTEND_URL           // Your production frontend URL
+  'http://localhost:8081'
 ];
 
 app.use(cors({
