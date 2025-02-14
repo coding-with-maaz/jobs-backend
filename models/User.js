@@ -10,17 +10,14 @@ const userSchema = new mongoose.Schema({
   // Step 2 (Required)
   name: {
     type: String,
-    required: true,
     trim: true
   },
   phone: {
     type: String,
-    required: true,
     trim: true
   },
   email: {
     type: String,
-    required: true,
     unique: true,
     trim: true,
     lowercase: true
@@ -35,7 +32,6 @@ const userSchema = new mongoose.Schema({
   // Step 4 (Required)
   password: {
     type: String,
-    required: true
   },
   
   // Additional fields
