@@ -199,9 +199,19 @@ class UserController {
         });
       }
 
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({
+          error: true,
+          message: 'Please enter a valid email address'
+        });
+      }
+
       // Check if email already exists
       const existingUser = await User.findOne({
-        'personalInformation.email': email.toLowerCase()
+        'personalInformation.email': email.toLowerCase(),
+        registrationComplete: true // Only check completed registrations
       });
 
       if (existingUser) {
@@ -248,7 +258,7 @@ class UserController {
     } catch (error) {
       console.error('Registration Step 2 Error:', error);
       
-      if (error.code === 11000 || error.message === 'Email already exists') {
+      if (error.message === 'Email already exists') {
         return res.status(400).json({
           error: true,
           message: 'This email is already registered'
