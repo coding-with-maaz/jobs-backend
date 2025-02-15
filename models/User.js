@@ -26,8 +26,6 @@ const userSchema = new mongoose.Schema({
       type: String,
       trim: true,
       lowercase: true,
-      unique: true,
-      sparse: true, // Allows null values while maintaining uniqueness
       index: true
     },
     phone: {
@@ -119,16 +117,21 @@ userSchema.statics.findByTempId = function(tempUserId) {
 
 // Pre-save middleware to handle email uniqueness
 userSchema.pre('save', async function(next) {
-  if (this.isModified('personalInformation.email')) {
-    const existingUser = await this.constructor.findOne({
-      'personalInformation.email': this.personalInformation.email
-    });
-    
-    if (existingUser && existingUser._id.toString() !== this._id.toString()) {
-      next(new Error('Email already exists'));
+  try {
+    if (this.isModified('personalInformation.email')) {
+      const existingUser = await this.constructor.findOne({
+        'personalInformation.email': this.personalInformation.email,
+        _id: { $ne: this._id }
+      });
+      
+      if (existingUser) {
+        throw new Error('Email already exists');
+      }
     }
+    next();
+  } catch (error) {
+    next(error);
   }
-  next();
 });
 
 module.exports = mongoose.model('User', userSchema);
