@@ -20,8 +20,7 @@ const userSchema = new mongoose.Schema({
     email: {
       type: String,
       trim: true,
-      lowercase: true,
-      sparse: true
+      lowercase: true
     },
     phone: {
       type: String,
@@ -90,8 +89,26 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Remove old indexes and add new ones
-userSchema.index({ 'personalInformation.email': 1 }, { sparse: true });
+// Remove all previous indexes
+userSchema.pre('save', async function(next) {
+  try {
+    if (this.isModified('personalInformation.email') && 
+        this.personalInformation?.email && 
+        this.registrationStep >= 2) {
+      const existingUser = await this.constructor.findOne({
+        'personalInformation.email': this.personalInformation.email,
+        _id: { $ne: this._id }
+      });
+      
+      if (existingUser) {
+        throw new Error('Email already exists');
+      }
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 
 // Add method to update registration step
 userSchema.methods.updateRegistrationStep = function(step) {
@@ -106,25 +123,5 @@ userSchema.methods.updateRegistrationStep = function(step) {
 userSchema.statics.findByTempId = function(tempUserId) {
   return this.findOne({ tempUserId });
 };
-
-// Pre-save middleware to handle email uniqueness
-userSchema.pre('save', async function(next) {
-  try {
-    if (this.isModified('personalInformation.email') && this.personalInformation?.email) {
-      const existingUser = await this.constructor.findOne({
-        'personalInformation.email': this.personalInformation.email,
-        registrationComplete: true,
-        _id: { $ne: this._id }
-      });
-      
-      if (existingUser) {
-        throw new Error('Email already exists');
-      }
-    }
-    next();
-  } catch (error) {
-    next(error);
-  }
-});
 
 module.exports = mongoose.model('User', userSchema);
