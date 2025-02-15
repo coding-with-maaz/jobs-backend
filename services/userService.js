@@ -1,382 +1,160 @@
-// const User = require('../models/User');
-// const bcrypt = require('bcryptjs');
-// const jwt = require('jsonwebtoken');
-
-// class UserService {
-//   async createOrUpdateRegistration(userId, userData, step) {
-//     try {
-//       let user;
-      
-//       if (!userId) {
-//         // First step - create new user
-//         user = new User({
-//           ...userData,
-//           registrationStep: step
-//         });
-//       } else {
-//         // Update existing registration
-//         user = await User.findById(userId);
-//         if (!user) {
-//           throw new Error('Registration not found');
-//         }
-
-//         // Update user data
-//         Object.assign(user, userData);
-//         user.registrationStep = step;
-//       }
-
-//       await user.save();
-//       return this._sanitizeUser(user);
-//     } catch (error) {
-//       throw new Error(`Registration step ${step} failed: ${error.message}`);
-//     }
-//   }
-
-//   async completeRegistration(userId, password) {
-//     try {
-//       const user = await User.findById(userId);
-//       if (!user) {
-//         throw new Error('Registration not found');
-//       }
-
-//       // Validate required fields
-//       if (!user.name || !user.email || !user.phone) {
-//         throw new Error('Required fields are missing');
-//       }
-
-//       // Hash password and complete registration
-//       const hashedPassword = await bcrypt.hash(password, 10);
-//       user.password = hashedPassword;
-//       user.registrationStep = 4;
-//       user.registrationComplete = true;
-      
-//       await user.save();
-
-//       // Generate token and return user data
-//       const token = this._generateToken(user);
-//       return {
-//         token,
-//         user: this._sanitizeUser(user)
-//       };
-//     } catch (error) {
-//       throw new Error(`Registration completion failed: ${error.message}`);
-//     }
-//   }
-
-//   async getAllUsers() {
-//     return await User.find().select('-password').sort({ createdAt: -1 });
-//   }
-
-//   async getUserById(id) {
-//     return await User.findById(id).select('-password');
-//   }
-
-//   async login(email, password) {
-//     const user = await User.findOne({ email });
-//     if (!user) {
-//       throw new Error('Invalid credentials');
-//     }
-
-//     const isMatch = await bcrypt.compare(password, user.password);
-//     if (!isMatch) {
-//       throw new Error('Invalid credentials');
-//     }
-
-//     const token = this._generateToken(user);
-//     return {
-//       token,
-//       user: this._sanitizeUser(user)
-//     };
-//   }
-
-//   async getProfile(userId) {
-//     const user = await User.findById(userId)
-//       .select('-password')
-//       .populate({
-//         path: 'savedJobs',
-//         populate: {
-//           path: 'category',
-//           select: 'name icon color'
-//         }
-//       });
-    
-//     if (!user) {
-//       throw new Error('User not found');
-//     }
-    
-//     return user;
-//   }
-
-//   async updateProfile(userId, profileData) {
-//     const allowedUpdates = [
-//       'name',
-//       'email',
-//       'phone',
-//       'location',
-//       'bio',
-//       'skills',
-//       'experience',
-//       'education'
-//     ];
-    
-//     const sanitizedData = Object.keys(profileData)
-//       .filter(key => allowedUpdates.includes(key))
-//       .reduce((obj, key) => {
-//         obj[key] = profileData[key];
-//         return obj;
-//       }, {});
-
-//     const user = await User.findByIdAndUpdate(
-//       userId,
-//       sanitizedData,
-//       { new: true, runValidators: true }
-//     ).select('-password');
-    
-//     return user;
-//   }
-
-//   async saveJob(userId, jobId) {
-//     const user = await User.findByIdAndUpdate(
-//       userId,
-//       { $addToSet: { savedJobs: jobId } },
-//       { new: true }
-//     ).populate({
-//       path: 'savedJobs',
-//       populate: {
-//         path: 'category',
-//         select: 'name icon color'
-//       }
-//     });
-//     return user.savedJobs;
-//   }
-
-//   async unsaveJob(userId, jobId) {
-//     const user = await User.findByIdAndUpdate(
-//       userId,
-//       { $pull: { savedJobs: jobId } },
-//       { new: true }
-//     ).populate({
-//       path: 'savedJobs',
-//       populate: {
-//         path: 'category',
-//         select: 'name icon color'
-//       }
-//     });
-//     return user.savedJobs;
-//   }
-
-//   async deleteUser(id) {
-//     await User.findByIdAndDelete(id);
-//     return true;
-//   }
-
-//   _generateToken(user) {
-//     return jwt.sign(
-//       { id: user._id, role: user.role },
-//       process.env.JWT_SECRET,
-//       { expiresIn: '30d' }
-//     );
-//   }
-
-//   _sanitizeUser(user) {
-//     const userObject = user.toObject();
-//     delete userObject.password;
-//     return userObject;
-//   }
-// }
-
-// module.exports = new UserService();
-
-
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 class UserService {
-  async createOrUpdateRegistration(userId, userData, step) {
+  
+  // Step 1: Create a new user (Assigns real user ID)
+  async registerStep1(userData) {
     try {
-      let user;
-      
-      if (!userId) {
-        // Create new user for step 2
-        user = new User({
-          ...userData,
-          registrationStep: step
-        });
-      } else {
-        // Update existing user for steps 2-3
-        user = await User.findById(userId);
-        if (!user) {
-          throw new Error('User not found');
-        }
-        
-        Object.assign(user, userData);
-        user.registrationStep = step;
-      }
-  
+      const user = new User({
+        ...userData,
+        registrationStep: 1,
+        registrationComplete: false
+      });
+
       await user.save();
-      console.log(`Step ${step} completed:`, user);
-  
-      return {
-        userId: user._id,
-        registrationStep: user.registrationStep
-      };
+      return { userId: user._id, registrationStep: user.registrationStep };
     } catch (error) {
-      console.error(`Step ${step} failed:`, error);
-      throw error;
+      throw new Error(`Step 1 failed: ${error.message}`);
     }
   }
-  
+
+  // Step 2 & 3: Update user information
+  async createOrUpdateRegistration(userId, userData, step) {
+    try {
+      const user = await User.findById(userId);
+      if (!user) throw new Error('User not found');
+
+      Object.assign(user, userData);
+      user.registrationStep = step;
+
+      await user.save();
+      return { userId: user._id, registrationStep: user.registrationStep };
+    } catch (error) {
+      throw new Error(`Step ${step} failed: ${error.message}`);
+    }
+  }
+
+  // Step 4: Finalize registration (Hash password & complete registration)
   async completeRegistration(userId, password) {
     try {
       const user = await User.findById(userId);
-      if (!user) {
-        throw new Error('Registration not found');
-      }
+      if (!user) throw new Error('User not found');
 
-      // Validate required fields
+      // Validate required fields before finalizing registration
       if (!user.name || !user.email || !user.phone) {
-        throw new Error('Required fields are missing');
+        throw new Error('Missing required information');
       }
 
-      // Hash password and complete registration
-      const hashedPassword = await bcrypt.hash(password, 10);
-      user.password = hashedPassword;
+      user.password = await bcrypt.hash(password, 10);
       user.registrationStep = 4;
       user.registrationComplete = true;
-      
+
       await user.save();
 
-      // Generate token and return user data
+      // Generate JWT token
       const token = this._generateToken(user);
-      return {
-        token,
-        user: this._sanitizeUser(user)
-      };
+
+      return { token, user: this._sanitizeUser(user) };
     } catch (error) {
-      throw new Error(`Registration completion failed: ${error.message}`);
+      throw new Error(`Step 4 failed: ${error.message}`);
     }
   }
 
-  async getAllUsers() {
-    return await User.find().select('-password').sort({ createdAt: -1 });
-  }
-
-  async getUserById(id) {
-    return await User.findById(id).select('-password');
-  }
-
+  // User login
   async login(email, password) {
-    const user = await User.findOne({ email });
-    if (!user) {
-      throw new Error('Invalid credentials');
-    }
+    try {
+      const user = await User.findOne({ email });
+      if (!user) throw new Error('User not found');
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      throw new Error('Invalid credentials');
-    }
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) throw new Error('Invalid credentials');
 
-    const token = this._generateToken(user);
-    return {
-      token,
-      user: this._sanitizeUser(user)
-    };
+      return { token: this._generateToken(user), user: this._sanitizeUser(user) };
+    } catch (error) {
+      throw new Error(`Login failed: ${error.message}`);
+    }
   }
 
+  // Get user profile
   async getProfile(userId) {
-    const user = await User.findById(userId)
-      .select('-password')
-      .populate({
-        path: 'savedJobs',
-        populate: {
-          path: 'category',
-          select: 'name icon color'
-        }
-      });
-    
-    if (!user) {
-      throw new Error('User not found');
+    try {
+      const user = await User.findById(userId).select('-password').populate('savedJobs');
+      if (!user) throw new Error('User not found');
+
+      return user;
+    } catch (error) {
+      throw new Error(`Profile fetch failed: ${error.message}`);
     }
-    
-    return user;
   }
 
+  // Update user profile
   async updateProfile(userId, profileData) {
-    const allowedUpdates = [
-      'name',
-      'email',
-      'phone',
-      'location',
-      'bio',
-      'skills',
-      'experience',
-      'education'
-    ];
-    
-    const sanitizedData = Object.keys(profileData)
-      .filter(key => allowedUpdates.includes(key))
-      .reduce((obj, key) => {
-        obj[key] = profileData[key];
-        return obj;
-      }, {});
+    try {
+      const allowedUpdates = ['name', 'email', 'phone', 'location', 'bio', 'skills', 'experience', 'education'];
+      const sanitizedData = {};
 
-    const user = await User.findByIdAndUpdate(
-      userId,
-      sanitizedData,
-      { new: true, runValidators: true }
-    ).select('-password');
-    
-    return user;
+      Object.keys(profileData).forEach(key => {
+        if (allowedUpdates.includes(key)) sanitizedData[key] = profileData[key];
+      });
+
+      const user = await User.findByIdAndUpdate(userId, sanitizedData, { new: true, runValidators: true }).select('-password');
+      if (!user) throw new Error('User not found');
+
+      return user;
+    } catch (error) {
+      throw new Error(`Profile update failed: ${error.message}`);
+    }
   }
 
+  // Save job to user profile
   async saveJob(userId, jobId) {
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { $addToSet: { savedJobs: jobId } },
-      { new: true }
-    ).populate({
-      path: 'savedJobs',
-      populate: {
-        path: 'category',
-        select: 'name icon color'
-      }
-    });
-    return user.savedJobs;
+    try {
+      const user = await User.findByIdAndUpdate(userId, { $addToSet: { savedJobs: jobId } }, { new: true }).populate('savedJobs');
+      if (!user) throw new Error('User not found');
+
+      return user;
+    } catch (error) {
+      throw new Error(`Save job failed: ${error.message}`);
+    }
   }
 
+  // Unsave job from user profile
   async unsaveJob(userId, jobId) {
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { $pull: { savedJobs: jobId } },
-      { new: true }
-    ).populate({
-      path: 'savedJobs',
-      populate: {
-        path: 'category',
-        select: 'name icon color'
-      }
-    });
-    return user.savedJobs;
+    try {
+      const user = await User.findByIdAndUpdate(userId, { $pull: { savedJobs: jobId } }, { new: true }).populate('savedJobs');
+      if (!user) throw new Error('User not found');
+
+      return user;
+    } catch (error) {
+      throw new Error(`Unsave job failed: ${error.message}`);
+    }
   }
 
+  // Delete user
   async deleteUser(id) {
-    await User.findByIdAndDelete(id);
-    return true;
+    try {
+      const user = await User.findByIdAndDelete(id);
+      if (!user) throw new Error('User not found');
+
+      return true;
+    } catch (error) {
+      throw new Error(`Delete user failed: ${error.message}`);
+    }
   }
 
+  // Generate JWT token
   _generateToken(user) {
-    return jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '30d' }
-    );
+    return jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '30d' });
   }
 
+  // Remove sensitive user data before sending response
   _sanitizeUser(user) {
-    const userObject = user.toObject();
-    delete userObject.password;
-    return userObject;
+    const sanitizedUser = user.toObject();
+    delete sanitizedUser.password;
+    delete sanitizedUser.__v;
+    return sanitizedUser;
   }
 }
 
