@@ -21,10 +21,10 @@ router.post(
   userController.login
 );
 
-// Get user profile (Protected Route)
+// Get user profile
 router.get('/profile', auth, userController.getProfile);
 
-// Update user profile (Protected Route)
+// Update user profile
 router.put('/profile', auth, userController.updateProfile);
 
 // Save Job (Protected Route)
