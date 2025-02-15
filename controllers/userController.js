@@ -148,8 +148,6 @@ class UserController {
   // Step 1: Register user (Skills only)
   async registerStep1(req, res) {
     try {
-      console.log('Received registration request:', req.body);
-      
       const { skills } = req.body;
       
       if (!skills || !Array.isArray(skills)) {
@@ -162,24 +160,26 @@ class UserController {
       // Create new user with skills
       const user = new User({
         skills,
-        registrationStep: 1
+        registrationStep: 1,
+        registrationComplete: false,
+        personalInformation: {} // Initialize empty object
       });
 
-      await user.save();
+      const savedUser = await user.save();
 
       return res.status(201).json({
         success: true,
         message: 'Skills saved successfully',
         data: {
-          userId: user._id,
-          skills: user.skills
+          userId: savedUser._id,
+          skills: savedUser.skills
         }
       });
     } catch (error) {
       console.error('Registration Step 1 Error:', error);
       return res.status(500).json({
         error: true,
-        message: error.message || 'Registration failed'
+        message: 'Registration failed. Please try again.'
       });
     }
   }
