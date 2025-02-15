@@ -199,6 +199,18 @@ class UserController {
         });
       }
 
+      // Check if email already exists
+      const existingUser = await User.findOne({
+        'personalInformation.email': email.toLowerCase()
+      });
+
+      if (existingUser) {
+        return res.status(400).json({
+          error: true,
+          message: 'This email is already registered'
+        });
+      }
+
       // Find or create user document
       let user = await User.findByTempId(tempUserId);
       
@@ -211,29 +223,32 @@ class UserController {
       }
 
       // Update user with step 2 data
-      user.firstName = firstName;
-      user.lastName = lastName;
-      user.email = email;
-      user.phone = phone;
+      user.personalInformation = {
+        firstName,
+        lastName,
+        email: email.toLowerCase(),
+        phone
+      };
+      
       await user.updateRegistrationStep(2);
+      await user.save();
 
       return res.status(200).json({
         success: true,
         message: 'Basic information saved successfully',
         data: {
           tempUserId: user.tempUserId,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          email: user.email,
-          phone: user.phone,
+          firstName: user.personalInformation.firstName,
+          lastName: user.personalInformation.lastName,
+          email: user.personalInformation.email,
+          phone: user.personalInformation.phone,
           skills: user.skills
         }
       });
     } catch (error) {
       console.error('Registration Step 2 Error:', error);
       
-      // Handle duplicate email error
-      if (error.code === 11000 && error.keyPattern?.email) {
+      if (error.code === 11000 || error.message === 'Email already exists') {
         return res.status(400).json({
           error: true,
           message: 'This email is already registered'
@@ -242,7 +257,7 @@ class UserController {
 
       return res.status(500).json({
         error: true,
-        message: error.message || 'Registration failed'
+        message: 'Registration failed. Please try again.'
       });
     }
   }
