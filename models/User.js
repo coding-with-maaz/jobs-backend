@@ -13,24 +13,27 @@ const userSchema = new mongoose.Schema({
   }],
   
   // Registration Step 2 (Basic Info)
-  firstName: {
-    type: String,
-    trim: true
-  },
-  lastName: {
-    type: String,
-    trim: true
-  },
-  email: {
-    type: String,
-    trim: true,
-    lowercase: true,
-    unique: true,
-    sparse: true // Allows null values while maintaining uniqueness
-  },
-  phone: {
-    type: String,
-    trim: true
+  personalInformation: {
+    firstName: {
+      type: String,
+      trim: true
+    },
+    lastName: {
+      type: String,
+      trim: true
+    },
+    email: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      unique: true,
+      sparse: true, // Allows null values while maintaining uniqueness
+      index: true
+    },
+    phone: {
+      type: String,
+      trim: true
+    }
   },
   
   // Registration Step 3 (Bio)
@@ -113,5 +116,19 @@ userSchema.methods.updateRegistrationStep = function(step) {
 userSchema.statics.findByTempId = function(tempUserId) {
   return this.findOne({ tempUserId });
 };
+
+// Pre-save middleware to handle email uniqueness
+userSchema.pre('save', async function(next) {
+  if (this.isModified('personalInformation.email')) {
+    const existingUser = await this.constructor.findOne({
+      'personalInformation.email': this.personalInformation.email
+    });
+    
+    if (existingUser && existingUser._id.toString() !== this._id.toString()) {
+      next(new Error('Email already exists'));
+    }
+  }
+  next();
+});
 
 module.exports = mongoose.model('User', userSchema);
