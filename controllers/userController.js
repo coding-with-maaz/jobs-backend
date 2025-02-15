@@ -150,7 +150,7 @@ class UserController {
     try {
       console.log('Received registration request:', req.body);
       
-      const { tempUserId, skills } = req.body;
+      const { skills } = req.body;
       
       if (!skills || !Array.isArray(skills)) {
         return res.status(400).json({
@@ -159,13 +159,20 @@ class UserController {
         });
       }
 
-      // For step 1, just validate and return success
+      // Create new user with skills
+      const user = new User({
+        skills,
+        registrationStep: 1
+      });
+
+      await user.save();
+
       return res.status(201).json({
         success: true,
         message: 'Skills saved successfully',
         data: {
-          tempUserId,
-          skills
+          userId: user._id,
+          skills: user.skills
         }
       });
     } catch (error) {
@@ -180,86 +187,49 @@ class UserController {
   // Step 2: Add basic information
   async registerStep2(req, res) {
     try {
-      console.log('Received Step 2 data:', req.body);
+      const { userId, firstName, lastName, email, phone, skills } = req.body;
       
-      const { tempUserId, firstName, lastName, email, phone, skills } = req.body;
-      
-      if (!tempUserId) {
+      if (!userId) {
         return res.status(400).json({
           error: true,
-          message: 'Temporary User ID is required'
+          message: 'User ID is required'
         });
       }
 
-      // Validate required fields
-      if (!firstName || !lastName || !email || !phone) {
-        return res.status(400).json({
+      // Find the user
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({
           error: true,
-          message: 'All fields are required'
+          message: 'User not found'
         });
       }
 
-      // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        return res.status(400).json({
-          error: true,
-          message: 'Please enter a valid email address'
-        });
-      }
+      // Update user information
+      user.personalInformation = {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.toLowerCase().trim(),
+        phone: phone.trim()
+      };
+      user.registrationStep = 2;
 
-      try {
-        // Find or create user document
-        let user = await User.findOne({ tempUserId });
-        
-        if (!user) {
-          user = new User({
-            tempUserId,
-            skills: skills || [],
-            registrationStep: 1,
-            registrationComplete: false
-          });
+      await user.save();
+
+      return res.status(200).json({
+        success: true,
+        message: 'Basic information saved successfully',
+        data: {
+          userId: user._id,
+          firstName: user.personalInformation.firstName,
+          lastName: user.personalInformation.lastName,
+          email: user.personalInformation.email,
+          phone: user.personalInformation.phone,
+          skills: user.skills
         }
-
-        // Update user with step 2 data
-        user.personalInformation = {
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          email: email.toLowerCase().trim(),
-          phone: phone.trim()
-        };
-        
-        user.registrationStep = 2;
-        
-        const savedUser = await user.save();
-        console.log('Saved user:', savedUser);
-
-        return res.status(200).json({
-          success: true,
-          message: 'Basic information saved successfully',
-          data: {
-            tempUserId: savedUser.tempUserId,
-            firstName: savedUser.personalInformation.firstName,
-            lastName: savedUser.personalInformation.lastName,
-            email: savedUser.personalInformation.email,
-            phone: savedUser.personalInformation.phone,
-            skills: savedUser.skills
-          }
-        });
-      } catch (dbError) {
-        console.error('Database operation error:', dbError);
-        throw new Error(dbError.message);
-      }
+      });
     } catch (error) {
       console.error('Registration Step 2 Error:', error);
-      
-      if (error.message === 'Email already exists') {
-        return res.status(400).json({
-          error: true,
-          message: 'This email is already registered'
-        });
-      }
-
       return res.status(500).json({
         error: true,
         message: 'Registration failed. Please try again.',
