@@ -1,43 +1,74 @@
 const express = require('express');
-const router = express.Router();
-const { body } = require('express-validator');
+const { check } = require('express-validator');
 const userController = require('../controllers/userController');
-const { auth, adminAuth } = require('../middleware/auth');
+const { auth, adminAuth } = require('../middleware/auth'); // Auth middleware
 
-// Registration validation middleware
-const validateStep2 = [
-  body('name').notEmpty().trim().withMessage('Name is required'),
-  body('phone').notEmpty().trim().withMessage('Phone number is required'),
-  body('email').isEmail().normalizeEmail().withMessage('Valid email is required')
-];
+const router = express.Router();
 
-const validateStep4 = [
-  body('password')
-    .isLength({ min: 6 })
-    .withMessage('Password must be at least 6 characters')
-];
+// Step 1: Register user (Skills only)
+router.post('/register-step-1', userController.registerStep1);
 
-// Multi-step registration routes
-router.post('/register/step1', userController.registerStep1);
-router.post('/register/step2/:userId', validateStep2, userController.registerStep2);
-router.post('/register/step3/:userId', userController.registerStep3);
-router.post('/register/step4/:userId', validateStep4, userController.registerStep4);
+// Step 2: Add basic information (Name, Phone, Email)
+router.post(
+  '/register-step-2',
+  [
+    check('userId').notEmpty().withMessage('User ID is required'),
+    check('name').notEmpty().withMessage('Name is required'),
+    check('phone').notEmpty().withMessage('Phone is required'),
+    check('email').isEmail().withMessage('Valid email is required'),
+  ],
+  userController.registerStep2
+);
 
-// Login route
-router.post('/login', [
-  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
-  body('password').notEmpty().withMessage('Password is required')
-], userController.login);
+// Step 3: Add Bio
+router.post(
+  '/register-step-3',
+  [
+    check('userId').notEmpty().withMessage('User ID is required'),
+    check('bio').notEmpty().withMessage('Bio is required'),
+  ],
+  userController.registerStep3
+);
 
-// Protected routes
+// Step 4: Complete registration (Set Password)
+router.post(
+  '/register-step-4',
+  [
+    check('userId').notEmpty().withMessage('User ID is required'),
+    check('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  ],
+  userController.registerStep4
+);
+
+// Login
+router.post(
+  '/login',
+  [
+    check('email').isEmail().withMessage('Valid email is required'),
+    check('password').notEmpty().withMessage('Password is required'),
+  ],
+  userController.login
+);
+
+// Get user profile (Protected Route)
 router.get('/profile', auth, userController.getProfile);
-router.put('/profile', auth, userController.updateProfile);
-router.post('/jobs/:jobId/save', auth, userController.saveJob);
-router.delete('/jobs/:jobId/save', auth, userController.unsaveJob);
 
-// Admin routes
-router.get('/', adminAuth, userController.getAllUsers);
-router.get('/:id', adminAuth, userController.getUserById);
-router.delete('/:id', adminAuth, userController.deleteUser);
+// Update user profile (Protected Route)
+router.put('/profile', auth, userController.updateProfile);
+
+// Save Job (Protected Route)
+router.post('/save-job/:jobId', auth, userController.saveJob);
+
+// Unsave Job (Protected Route)
+router.delete('/unsave-job/:jobId', auth, userController.unsaveJob);
+
+// Get all users (Admin only)
+router.get('/users', adminAuth, userController.getAllUsers);
+
+// Get user by ID (Admin or self)
+router.get('/user/:id', auth, userController.getUserById);
+
+// Delete user (Admin only)
+router.delete('/user/:id', adminAuth, userController.deleteUser);
 
 module.exports = router;
