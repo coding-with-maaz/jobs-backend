@@ -242,13 +242,49 @@ class UserController {
   async registerStep3(req, res) {
     try {
       const { userId, bio } = req.body;
-      if (!userId) return res.status(400).json({ message: "User ID is required" });
+      
+      if (!userId) {
+        return res.status(400).json({
+          error: true,
+          message: 'User ID is required'
+        });
+      }
 
-      const user = await userService.createOrUpdateRegistration(userId, { bio }, 3);
+      // Find the user
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({
+          error: true,
+          message: 'User not found'
+        });
+      }
 
-      return res.json(user);
+      // Update user information
+      user.bio = bio.trim();
+      user.registrationStep = 3;
+
+      await user.save();
+
+      return res.status(200).json({
+        success: true,
+        message: 'Bio saved successfully',
+        data: {
+          userId: user._id,
+          bio: user.bio,
+          skills: user.skills,
+          firstName: user.personalInformation.firstName,
+          lastName: user.personalInformation.lastName,
+          email: user.personalInformation.email,
+          phone: user.personalInformation.phone
+        }
+      });
     } catch (error) {
-      res.status(400).json({ message: error.message });
+      console.error('Registration Step 3 Error:', error);
+      return res.status(500).json({
+        error: true,
+        message: 'Registration failed. Please try again.',
+        details: error.message
+      });
     }
   }
 
