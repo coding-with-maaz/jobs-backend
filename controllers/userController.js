@@ -142,6 +142,8 @@
 const userService = require('../services/userService');
 const { validationResult } = require('express-validator');
 const User = require('../models/User');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 class UserController {
   
@@ -291,19 +293,70 @@ class UserController {
   // Step 4: Complete registration (Set Password)
   async registerStep4(req, res) {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
+      const { userId, password } = req.body;
+      
+      if (!userId) {
+        return res.status(400).json({
+          error: true,
+          message: 'User ID is required'
+        });
       }
 
-      const { userId, password } = req.body;
-      if (!userId) return res.status(400).json({ message: "User ID is required" });
+      if (!password || password.length < 6) {
+        return res.status(400).json({
+          error: true,
+          message: 'Password must be at least 6 characters long'
+        });
+      }
 
-      const result = await userService.completeRegistration(userId, password);
+      // Find the user
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({
+          error: true,
+          message: 'User not found'
+        });
+      }
 
-      return res.json(result);
+      // Hash password
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+
+      // Update user
+      user.password = hashedPassword;
+      user.registrationStep = 4;
+      user.registrationComplete = true;
+
+      await user.save();
+
+      // Generate JWT token
+      const token = jwt.sign(
+        { userId: user._id, role: user.role },
+        process.env.JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: 'Registration completed successfully',
+        data: {
+          token,
+          user: {
+            userId: user._id,
+            firstName: user.personalInformation.firstName,
+            lastName: user.personalInformation.lastName,
+            email: user.personalInformation.email,
+            role: user.role
+          }
+        }
+      });
     } catch (error) {
-      res.status(400).json({ message: error.message });
+      console.error('Registration Step 4 Error:', error);
+      return res.status(500).json({
+        error: true,
+        message: 'Registration failed. Please try again.',
+        details: error.message
+      });
     }
   }
 
