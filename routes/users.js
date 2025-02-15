@@ -5,40 +5,11 @@ const { auth, adminAuth } = require('../middleware/auth'); // Auth middleware
 
 const router = express.Router();
 
-// Step 1: Register user (Skills only)
-router.post('/register-step-1', userController.registerStep1);
-
-// Step 2: Add basic information (Name, Phone, Email)
-router.post(
-  '/register-step-2',
-  [
-    check('userId').notEmpty().withMessage('User ID is required'),
-    check('name').notEmpty().withMessage('Name is required'),
-    check('phone').notEmpty().withMessage('Phone is required'),
-    check('email').isEmail().withMessage('Valid email is required'),
-  ],
-  userController.registerStep2
-);
-
-// Step 3: Add Bio
-router.post(
-  '/register-step-3',
-  [
-    check('userId').notEmpty().withMessage('User ID is required'),
-    check('bio').notEmpty().withMessage('Bio is required'),
-  ],
-  userController.registerStep3
-);
-
-// Step 4: Complete registration (Set Password)
-router.post(
-  '/register-step-4',
-  [
-    check('userId').notEmpty().withMessage('User ID is required'),
-    check('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
-  ],
-  userController.registerStep4
-);
+// Registration routes
+router.post('/register/step1', userController.registerStep1);
+router.post('/register/step2', userController.registerStep2);
+router.post('/register/step3', userController.registerStep3);
+router.post('/register/step4', userController.registerStep4);
 
 // Login
 router.post(
