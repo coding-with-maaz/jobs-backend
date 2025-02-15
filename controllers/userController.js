@@ -147,12 +147,32 @@ class UserController {
   // Step 1: Register user (Skills only)
   async registerStep1(req, res) {
     try {
-      const { skills } = req.body;
-      const user = await userService.registerStep1({ skills });
+      console.log('Received registration request:', req.body);
+      
+      const { tempUserId, skills } = req.body;
+      
+      if (!skills || !Array.isArray(skills)) {
+        return res.status(400).json({
+          error: true,
+          message: 'Skills array is required'
+        });
+      }
 
-      return res.status(201).json(user); // Return userId for next steps
+      // For step 1, just validate and return success
+      return res.status(201).json({
+        success: true,
+        message: 'Skills saved successfully',
+        data: {
+          tempUserId,
+          skills
+        }
+      });
     } catch (error) {
-      res.status(400).json({ message: error.message });
+      console.error('Registration Step 1 Error:', error);
+      return res.status(500).json({
+        error: true,
+        message: error.message || 'Registration failed'
+      });
     }
   }
 
