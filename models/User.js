@@ -2,12 +2,6 @@ const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
   // Registration Step 1 (Skills)
-  tempUserId: {
-    type: String,
-    required: true,
-    unique: true,
-    index: true
-  },
   skills: [{
     type: String,
     trim: true
@@ -17,25 +11,21 @@ const userSchema = new mongoose.Schema({
   personalInformation: {
     firstName: {
       type: String,
-      trim: true,
-      default: null
+      trim: true
     },
     lastName: {
       type: String,
-      trim: true,
-      default: null
+      trim: true
     },
     email: {
       type: String,
       trim: true,
       lowercase: true,
-      default: null,
-      index: true
+      sparse: true
     },
     phone: {
       type: String,
-      trim: true,
-      default: null
+      trim: true
     }
   },
   
@@ -100,11 +90,8 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Add index for tempUserId
-userSchema.index({ tempUserId: 1 });
-
-// Add compound index for registration tracking
-userSchema.index({ tempUserId: 1, registrationStep: 1 });
+// Remove old indexes and add new ones
+userSchema.index({ 'personalInformation.email': 1 }, { sparse: true });
 
 // Add method to update registration step
 userSchema.methods.updateRegistrationStep = function(step) {
