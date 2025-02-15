@@ -2,7 +2,7 @@ const express = require('express');
 const { check } = require('express-validator');
 const userController = require('../controllers/userController');
 const { auth, adminAuth } = require('../middleware/auth'); // Auth middleware
-const User = require('../models/user');
+const { User } = require('../models'); // Updated import
 
 const router = express.Router();
 
