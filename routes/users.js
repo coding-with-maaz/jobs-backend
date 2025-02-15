@@ -2,6 +2,7 @@ const express = require('express');
 const { check } = require('express-validator');
 const userController = require('../controllers/userController');
 const { auth, adminAuth } = require('../middleware/auth'); // Auth middleware
+const User = require('../models/user');
 
 const router = express.Router();
 
@@ -22,10 +23,68 @@ router.post(
 );
 
 // Get user profile
-router.get('/profile', auth, userController.getProfile);
+router.get('/profile', auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId)
+      .select('-password')
+      .lean();
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: user
+    });
+  } catch (error) {
+    console.error('Get profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching profile'
+    });
+  }
+});
 
 // Update user profile
-router.put('/profile', auth, userController.updateProfile);
+router.put('/profile', auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const updateData = req.body;
+
+    // Remove sensitive fields
+    delete updateData.password;
+    delete updateData._id;
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $set: updateData },
+      { new: true }
+    ).select('-password');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: user
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating profile'
+    });
+  }
+});
 
 // Save Job (Protected Route)
 router.post('/save-job/:jobId', auth, userController.saveJob);
