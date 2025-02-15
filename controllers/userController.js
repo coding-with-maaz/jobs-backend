@@ -141,6 +141,7 @@
 
 const userService = require('../services/userService');
 const { validationResult } = require('express-validator');
+const User = require('../models/User');
 
 class UserController {
   
@@ -176,22 +177,73 @@ class UserController {
     }
   }
 
-  // Step 2: Add basic information (Name, Phone, Email)
+  // Step 2: Add basic information
   async registerStep2(req, res) {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
+      console.log('Received Step 2 data:', req.body);
+      
+      const { tempUserId, firstName, lastName, email, phone, skills } = req.body;
+      
+      if (!tempUserId) {
+        return res.status(400).json({
+          error: true,
+          message: 'Temporary User ID is required'
+        });
       }
 
-      const { userId, name, phone, email } = req.body;
-      if (!userId) return res.status(400).json({ message: "User ID is required" });
+      // Validate required fields
+      if (!firstName || !lastName || !email || !phone) {
+        return res.status(400).json({
+          error: true,
+          message: 'All fields are required'
+        });
+      }
 
-      const user = await userService.createOrUpdateRegistration(userId, { name, phone, email }, 2);
+      // Find or create user document
+      let user = await User.findByTempId(tempUserId);
+      
+      if (!user) {
+        user = new User({
+          tempUserId,
+          skills,
+          registrationStep: 1
+        });
+      }
 
-      return res.json(user);
+      // Update user with step 2 data
+      user.firstName = firstName;
+      user.lastName = lastName;
+      user.email = email;
+      user.phone = phone;
+      await user.updateRegistrationStep(2);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Basic information saved successfully',
+        data: {
+          tempUserId: user.tempUserId,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          phone: user.phone,
+          skills: user.skills
+        }
+      });
     } catch (error) {
-      res.status(400).json({ message: error.message });
+      console.error('Registration Step 2 Error:', error);
+      
+      // Handle duplicate email error
+      if (error.code === 11000 && error.keyPattern?.email) {
+        return res.status(400).json({
+          error: true,
+          message: 'This email is already registered'
+        });
+      }
+
+      return res.status(500).json({
+        error: true,
+        message: error.message || 'Registration failed'
+      });
     }
   }
 
