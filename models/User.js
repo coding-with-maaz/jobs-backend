@@ -5,7 +5,8 @@ const userSchema = new mongoose.Schema({
   tempUserId: {
     type: String,
     required: true,
-    unique: true
+    unique: true,
+    index: true
   },
   skills: [{
     type: String,
@@ -16,21 +17,25 @@ const userSchema = new mongoose.Schema({
   personalInformation: {
     firstName: {
       type: String,
-      trim: true
+      trim: true,
+      default: null
     },
     lastName: {
       type: String,
-      trim: true
+      trim: true,
+      default: null
     },
     email: {
       type: String,
       trim: true,
       lowercase: true,
+      default: null,
       index: true
     },
     phone: {
       type: String,
-      trim: true
+      trim: true,
+      default: null
     }
   },
   
@@ -118,9 +123,10 @@ userSchema.statics.findByTempId = function(tempUserId) {
 // Pre-save middleware to handle email uniqueness
 userSchema.pre('save', async function(next) {
   try {
-    if (this.isModified('personalInformation.email')) {
+    if (this.isModified('personalInformation.email') && this.personalInformation?.email) {
       const existingUser = await this.constructor.findOne({
         'personalInformation.email': this.personalInformation.email,
+        registrationComplete: true,
         _id: { $ne: this._id }
       });
       
