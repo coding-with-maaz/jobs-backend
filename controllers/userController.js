@@ -208,53 +208,48 @@ class UserController {
         });
       }
 
-      // Check if email already exists
-      const existingUser = await User.findOne({
-        'personalInformation.email': email.toLowerCase(),
-        registrationComplete: true // Only check completed registrations
-      });
-
-      if (existingUser) {
-        return res.status(400).json({
-          error: true,
-          message: 'This email is already registered'
-        });
-      }
-
-      // Find or create user document
-      let user = await User.findByTempId(tempUserId);
-      
-      if (!user) {
-        user = new User({
-          tempUserId,
-          skills,
-          registrationStep: 1
-        });
-      }
-
-      // Update user with step 2 data
-      user.personalInformation = {
-        firstName,
-        lastName,
-        email: email.toLowerCase(),
-        phone
-      };
-      
-      await user.updateRegistrationStep(2);
-      await user.save();
-
-      return res.status(200).json({
-        success: true,
-        message: 'Basic information saved successfully',
-        data: {
-          tempUserId: user.tempUserId,
-          firstName: user.personalInformation.firstName,
-          lastName: user.personalInformation.lastName,
-          email: user.personalInformation.email,
-          phone: user.personalInformation.phone,
-          skills: user.skills
+      try {
+        // Find or create user document
+        let user = await User.findOne({ tempUserId });
+        
+        if (!user) {
+          user = new User({
+            tempUserId,
+            skills: skills || [],
+            registrationStep: 1,
+            registrationComplete: false
+          });
         }
-      });
+
+        // Update user with step 2 data
+        user.personalInformation = {
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          email: email.toLowerCase().trim(),
+          phone: phone.trim()
+        };
+        
+        user.registrationStep = 2;
+        
+        const savedUser = await user.save();
+        console.log('Saved user:', savedUser);
+
+        return res.status(200).json({
+          success: true,
+          message: 'Basic information saved successfully',
+          data: {
+            tempUserId: savedUser.tempUserId,
+            firstName: savedUser.personalInformation.firstName,
+            lastName: savedUser.personalInformation.lastName,
+            email: savedUser.personalInformation.email,
+            phone: savedUser.personalInformation.phone,
+            skills: savedUser.skills
+          }
+        });
+      } catch (dbError) {
+        console.error('Database operation error:', dbError);
+        throw new Error(dbError.message);
+      }
     } catch (error) {
       console.error('Registration Step 2 Error:', error);
       
@@ -267,7 +262,8 @@ class UserController {
 
       return res.status(500).json({
         error: true,
-        message: 'Registration failed. Please try again.'
+        message: 'Registration failed. Please try again.',
+        details: error.message
       });
     }
   }
