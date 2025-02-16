@@ -223,11 +223,71 @@ class UserController {
   async login(req, res) {
     try {
       const { email, password } = req.body;
-      const result = await userService.login(email, password);
 
-      return res.json(result);
+      // Input validation
+      if (!email || !password) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email and password are required'
+        });
+      }
+
+      // Find user by email
+      const user = await User.findOne({ 'personalInformation.email': email });
+      
+      // Check if user exists
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid email or password'
+        });
+      }
+
+      // Check if registration is complete
+      if (!user.registrationComplete) {
+        return res.status(401).json({
+          success: false,
+          message: 'Please complete your registration first'
+        });
+      }
+
+      // Verify password
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid email or password'
+        });
+      }
+
+      // Generate JWT token
+      const token = jwt.sign(
+        { userId: user._id, role: user.role },
+        process.env.JWT_SECRET,
+        { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+      );
+
+      // Return success response
+      return res.status(200).json({
+        success: true,
+        data: {
+          token,
+          user: {
+            id: user._id,
+            firstName: user.personalInformation.firstName,
+            lastName: user.personalInformation.lastName,
+            email: user.personalInformation.email,
+            role: user.role
+          }
+        }
+      });
+
     } catch (error) {
-      res.status(401).json({ message: error.message });
+      console.error('Login error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'An error occurred during login'
+      });
     }
   }
 
