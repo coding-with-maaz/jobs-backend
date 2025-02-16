@@ -1,5 +1,6 @@
 const jobService = require('../services/jobService');
-const { validationResult } = require('express-validator');
+const { validationResult, body } = require('express-validator');
+const Job = require('../models/Job');
 
 class JobController {
   async getAllJobs(req, res) {
@@ -30,10 +31,18 @@ class JobController {
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const job = await jobService.createJob(req.body);
+      const jobData = {
+        ...req.body,
+        date: new Date(), // Add current date
+      };
+
+      const job = new Job(jobData);
+      await job.save();
+
       res.status(201).json(job);
     } catch (error) {
-      res.status(400).json({ message: error.message });
+      console.error('Error creating job:', error);
+      res.status(500).json({ message: 'Error creating job', error: error.message });
     }
   }
 
@@ -75,4 +84,29 @@ class JobController {
   }
 }
 
-module.exports = new JobController();
+// Validation middleware
+const validateJob = [
+  body('title').trim().notEmpty().withMessage('Job title is required'),
+  body('category').trim().notEmpty().withMessage('Category is required')
+    .isMongoId().withMessage('Invalid category ID'),
+  body('salary').trim().notEmpty().withMessage('Salary is required'),
+  body('company').trim().notEmpty().withMessage('Company name is required'),
+  body('location').trim().notEmpty().withMessage('Location is required'),
+  body('type').trim().notEmpty().withMessage('Job type is required')
+    .isIn(['fulltime', 'parttime', 'contract', 'internship'])
+    .withMessage('Invalid job type'),
+  body('description').trim().notEmpty().withMessage('Description is required'),
+  body('applicationUrl').trim().notEmpty().withMessage('Application URL is required')
+    .isURL().withMessage('Valid application URL is required'),
+  body('requirements').isArray().withMessage('Requirements must be an array'),
+];
+
+module.exports = {
+  validateJob,
+  getAllJobs: JobController.prototype.getAllJobs,
+  getJobById: JobController.prototype.getJobById,
+  createJob: JobController.prototype.createJob,
+  updateJob: JobController.prototype.updateJob,
+  deleteJob: JobController.prototype.deleteJob,
+  searchJobs: JobController.prototype.searchJobs
+};
