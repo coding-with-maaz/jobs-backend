@@ -1,11 +1,27 @@
 const categoryService = require('../services/categoryService');
 const { validationResult } = require('express-validator');
+const Category = require('../models/Category');
+const Job = require('../models/Job');
 
 class CategoryController {
   async getAllCategories(req, res) {
     try {
-      const categories = await categoryService.getAllCategories();
-      res.json(categories);
+      const categories = await Category.find()
+        .select('_id name icon description color status')
+        .lean();
+      
+      // Add job count for each category
+      const categoriesWithCount = await Promise.all(
+        categories.map(async (category) => {
+          const count = await Job.countDocuments({ category: category._id });
+          return {
+            ...category,
+            jobCount: count
+          };
+        })
+      );
+
+      res.json(categoriesWithCount);
     } catch (error) {
       res.status(500).json({ message: error.message });
     }
