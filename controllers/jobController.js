@@ -5,8 +5,18 @@ const Job = require('../models/Job');
 class JobController {
   async getAllJobs(req, res) {
     try {
-      const jobs = await jobService.getAllJobs();
-      res.json(jobs);
+      const { category } = req.query;
+      const query = category ? { category } : {};
+      
+      const jobs = await Job.find(query).populate('category');
+      const total = await Job.countDocuments(query);
+      
+      res.json({
+        jobs,
+        total,
+        page: 1,
+        pages: 1
+      });
     } catch (error) {
       res.status(500).json({ message: error.message });
     }
