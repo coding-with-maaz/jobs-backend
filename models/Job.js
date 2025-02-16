@@ -8,7 +8,8 @@ const jobSchema = new mongoose.Schema({
   category: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Category',
-    required: true
+    required: true,
+    index: true
   },
   salary: {
     type: String,
@@ -29,7 +30,7 @@ const jobSchema = new mongoose.Schema({
   type: {
     type: String,
     required: true,
-    enum: ['Full Time', 'Part Time', 'Contract', 'Freelance']
+    enum: ['fulltime', 'parttime', 'contract', 'internship']
   },  
   description: {
     type: String,
@@ -45,5 +46,10 @@ const jobSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+// Add a static method to count jobs by category
+jobSchema.statics.countByCategory = function(categoryId) {
+  return this.countDocuments({ category: categoryId });
+};
 
 module.exports = mongoose.model('Job', jobSchema);
