@@ -38,20 +38,9 @@ const jobSchema = new mongoose.Schema({
   requirements: [{
     type: String
   }],
-  benefits: [{
-    type: String
-  }],
-  skills: [{
-    type: String
-  }],
   applicationUrl: {
     type: String,
     required: true
-  },
-  status: {
-    type: String,
-    enum: ['active', 'closed', 'draft'],
-    default: 'active'
   }
 }, {
   timestamps: true
