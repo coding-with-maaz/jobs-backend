@@ -8,6 +8,7 @@ const {
   updateJob,
   deleteJob
 } = require('../controllers/jobController');
+const adConfigController = require('../controllers/adConfigController');
 
 // Routes
 router.get('/', getAllJobs);
