@@ -1,21 +1,24 @@
 const jobService = require('../services/jobService');
 const { validationResult, body } = require('express-validator');
 const Job = require('../models/Job');
+const AdConfig = require('../models/AdConfig');
 
 class JobController {
   async getAllJobs(req, res) {
     try {
       const { category } = req.query;
       const query = category ? { category } : {};
-      
+
       const jobs = await Job.find(query).populate('category');
       const total = await Job.countDocuments(query);
-      
+      const adConfig = await AdConfig.findOne();
+
       res.json({
         jobs,
         total,
         page: 1,
-        pages: 1
+        pages: 1,
+        adConfig: adConfig || { showAds: true }, // Default if no config exists
       });
     } catch (error) {
       res.status(500).json({ message: error.message });
