@@ -7,7 +7,6 @@ const categoryRoutes = require('./routes/categories');
 const userRoutes = require('./routes/users');
 const adminRoutes = require('./routes/admin');
 const dashboardRoutes = require('./routes/dashboard');
-const adConfigRoutes = require('./routes/adConfigRoutes');
 
 const app = express();
 
@@ -32,7 +31,7 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/adConfig', adConfigRoutes);
+
 // Error handling
 app.use((err, req, res, next) => {
   console.error('Error:', err);
