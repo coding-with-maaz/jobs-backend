@@ -11,8 +11,4 @@ router.post('/', jobController.createJob);
 router.put('/:id', jobController.updateJob);
 router.delete('/:id', jobController.deleteJob);
 
-// Ad configuration routes
-router.get('/adConfig', adConfigController.getAdConfig);
-router.put('/adConfig', adConfigController.updateAdConfig);
-
 module.exports = router;
