@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const adConfigSchema = new mongoose.Schema({
   showAds: {
     type: Boolean,
-    default: true,
+    default: false,
   },
   bannerAdUnitId: {
     type: String,
