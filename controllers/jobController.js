@@ -89,28 +89,55 @@ class JobController {
         return res.status(400).json({ message: 'Search query is required' });
       }
 
+      // Get matching jobs based on the search query
       const jobs = await jobService.searchJobs(query);
-      res.json(jobs);
+
+      // Generate related keywords based on the query.
+      // You can replace this with a call to a dedicated search suggestion service if needed.
+      const relatedKeywords = generateRelatedKeywords(query);
+
+      res.json({ jobs, relatedKeywords });
     } catch (error) {
       res.status(500).json({ message: error.message });
     }
   }
 }
 
-// Validation middleware
+// Helper function to generate related keyword suggestions
+function generateRelatedKeywords(query) {
+  return [
+    `${query} developer`,
+    `${query} engineer`,
+    `${query} opportunities`,
+    `${query} jobs`,
+  ];
+}
+
+// Validation middleware for creating/updating jobs
 const validateJob = [
   body('title').trim().notEmpty().withMessage('Job title is required'),
-  body('category').trim().notEmpty().withMessage('Category is required')
-    .isMongoId().withMessage('Invalid category ID'),
+  body('category')
+    .trim()
+    .notEmpty()
+    .withMessage('Category is required')
+    .isMongoId()
+    .withMessage('Invalid category ID'),
   body('salary').trim().notEmpty().withMessage('Salary is required'),
   body('company').trim().notEmpty().withMessage('Company name is required'),
   body('location').trim().notEmpty().withMessage('Location is required'),
-  body('type').trim().notEmpty().withMessage('Job type is required')
+  body('type')
+    .trim()
+    .notEmpty()
+    .withMessage('Job type is required')
     .isIn(['fulltime', 'parttime', 'contract', 'internship'])
     .withMessage('Invalid job type'),
   body('description').trim().notEmpty().withMessage('Description is required'),
-  body('applicationUrl').trim().notEmpty().withMessage('Application URL is required')
-    .isURL().withMessage('Valid application URL is required'),
+  body('applicationUrl')
+    .trim()
+    .notEmpty()
+    .withMessage('Application URL is required')
+    .isURL()
+    .withMessage('Valid application URL is required'),
   body('requirements').isArray().withMessage('Requirements must be an array'),
 ];
 
@@ -121,5 +148,5 @@ module.exports = {
   createJob: JobController.prototype.createJob,
   updateJob: JobController.prototype.updateJob,
   deleteJob: JobController.prototype.deleteJob,
-  searchJobs: JobController.prototype.searchJobs
+  searchJobs: JobController.prototype.searchJobs,
 };
