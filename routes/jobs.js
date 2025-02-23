@@ -1,14 +1,21 @@
-// routes/jobs.js
 const express = require('express');
 const router = express.Router();
-const jobController = require('../controllers/jobController');
-const adConfigController = require('../controllers/adConfigController');
+const {
+  validateJob,
+  getAllJobs,
+  getJobById,
+  createJob,
+  updateJob,
+  deleteJob,
+  searchJobs // Import the searchJobs method
+} = require('../controllers/jobController');
 
-// Job-related routes
-router.get('/', jobController.getAllJobs);
-router.get('/:id', jobController.getJobById);
-router.post('/', jobController.createJob);
-router.put('/:id', jobController.updateJob);
-router.delete('/:id', jobController.deleteJob);
+// Routes
+router.get('/', getAllJobs);
+router.get('/search', searchJobs); // New route for job search with related keyword suggestions
+router.get('/:id', getJobById);
+router.post('/', validateJob, createJob);
+router.put('/:id', validateJob, updateJob);
+router.delete('/:id', deleteJob);
 
 module.exports = router;
