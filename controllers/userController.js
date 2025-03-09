@@ -1,415 +1,94 @@
-const userService = require('../services/userService');
+const User = require('../models/User');
 const { validationResult } = require('express-validator');
-const { User } = require('../models');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 
-class UserController {
-  
-  // Step 1: Register user (Skills only)
-  async registerStep1(req, res) {
-    try {
-      const { skills } = req.body;
-      
-      if (!skills || !Array.isArray(skills)) {
-        return res.status(400).json({
-          error: true,
-          message: 'Skills array is required'
-        });
-      }
-
-      // Create new user with skills
-      const user = new User({
-        skills,
-        registrationStep: 1,
-        registrationComplete: false,
-        personalInformation: {} // Initialize empty object
-      });
-
-      const savedUser = await user.save();
-
-      return res.status(201).json({
-        success: true,
-        message: 'Skills saved successfully',
-        data: {
-          userId: savedUser._id,
-          skills: savedUser.skills
-        }
-      });
-    } catch (error) {
-      console.error('Registration Step 1 Error:', error);
-      return res.status(500).json({
-        error: true,
-        message: 'Registration failed. Please try again.'
-      });
+// Get user profile
+exports.getUserProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
     }
+    res.json(user);
+  } catch (error) {
+    console.error('Get user profile error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Update user profile
+exports.updateUserProfile = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
   }
 
-  // Step 2: Add basic information
-  async registerStep2(req, res) {
-    try {
-      const { userId, firstName, lastName, email, phone, skills } = req.body;
-      
-      if (!userId) {
-        return res.status(400).json({
-          error: true,
-          message: 'User ID is required'
-        });
-      }
+  const { name, email } = req.body;
 
-      // Find the user
-      const user = await User.findById(userId);
-      if (!user) {
-        return res.status(404).json({
-          error: true,
-          message: 'User not found'
-        });
-      }
+  try {
+    // Build update object
+    const updateFields = {};
+    if (name) updateFields.name = name;
+    if (email) updateFields.email = email;
 
-      // Update user information
-      user.personalInformation = {
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        email: email.toLowerCase().trim(),
-        phone: phone.trim()
-      };
-      user.registrationStep = 2;
-
-      await user.save();
-
-      return res.status(200).json({
-        success: true,
-        message: 'Basic information saved successfully',
-        data: {
-          userId: user._id,
-          firstName: user.personalInformation.firstName,
-          lastName: user.personalInformation.lastName,
-          email: user.personalInformation.email,
-          phone: user.personalInformation.phone,
-          skills: user.skills
-        }
-      });
-    } catch (error) {
-      console.error('Registration Step 2 Error:', error);
-      return res.status(500).json({
-        error: true,
-        message: 'Registration failed. Please try again.',
-        details: error.message
-      });
+    // Find and update user
+    let user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
     }
+
+    // Check if email is already in use by another user
+    if (email && email !== user.email) {
+      const existingUser = await User.findOne({ email });
+      if (existingUser) {
+        return res.status(400).json({ message: 'Email already in use' });
+      }
+    }
+
+    user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: updateFields },
+      { new: true }
+    ).select('-password');
+
+    res.json({
+      message: 'Profile updated successfully',
+      user
+    });
+  } catch (error) {
+    console.error('Update user profile error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Change password
+exports.changePassword = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
   }
 
-  // Step 3: Add Bio
-  async registerStep3(req, res) {
-    try {
-      const { userId, bio } = req.body;
-      
-      if (!userId) {
-        return res.status(400).json({
-          error: true,
-          message: 'User ID is required'
-        });
-      }
+  const { currentPassword, newPassword } = req.body;
 
-      // Find the user
-      const user = await User.findById(userId);
-      if (!user) {
-        return res.status(404).json({
-          error: true,
-          message: 'User not found'
-        });
-      }
-
-      // Update user information
-      user.bio = bio.trim();
-      user.registrationStep = 3;
-
-      await user.save();
-
-      return res.status(200).json({
-        success: true,
-        message: 'Bio saved successfully',
-        data: {
-          userId: user._id,
-          bio: user.bio,
-          skills: user.skills,
-          firstName: user.personalInformation.firstName,
-          lastName: user.personalInformation.lastName,
-          email: user.personalInformation.email,
-          phone: user.personalInformation.phone
-        }
-      });
-    } catch (error) {
-      console.error('Registration Step 3 Error:', error);
-      return res.status(500).json({
-        error: true,
-        message: 'Registration failed. Please try again.',
-        details: error.message
-      });
+  try {
+    // Find user
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
     }
-  }
 
-  // Step 4: Complete registration (Set Password)
-  async registerStep4(req, res) {
-    try {
-      const { userId, password } = req.body;
-      
-      if (!userId) {
-        return res.status(400).json({
-          error: true,
-          message: 'User ID is required'
-        });
-      }
-
-      if (!password || password.length < 6) {
-        return res.status(400).json({
-          error: true,
-          message: 'Password must be at least 6 characters long'
-        });
-      }
-
-      // Find the user
-      const user = await User.findById(userId);
-      if (!user) {
-        return res.status(404).json({
-          error: true,
-          message: 'User not found'
-        });
-      }
-
-      // Hash password
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
-
-      // Update user
-      user.password = hashedPassword;
-      user.registrationStep = 4;
-      user.registrationComplete = true;
-
-      await user.save();
-
-      // Generate JWT token
-      const token = jwt.sign(
-        { userId: user._id, role: user.role },
-        process.env.JWT_SECRET,
-        { expiresIn: '7d' }
-      );
-
-      return res.status(200).json({
-        success: true,
-        message: 'Registration completed successfully',
-        data: {
-          token,
-          user: {
-            userId: user._id,
-            firstName: user.personalInformation.firstName,
-            lastName: user.personalInformation.lastName,
-            email: user.personalInformation.email,
-            role: user.role
-          }
-        }
-      });
-    } catch (error) {
-      console.error('Registration Step 4 Error:', error);
-      return res.status(500).json({
-        error: true,
-        message: 'Registration failed. Please try again.',
-        details: error.message
-      });
+    // Check current password
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Current password is incorrect' });
     }
+
+    // Update password
+    user.password = newPassword;
+    await user.save();
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ message: 'Server error' });
   }
-
-  // User Login
-  async login(req, res) {
-    try {
-      const { email, password } = req.body;
-
-      // Input validation
-      if (!email || !password) {
-        return res.status(400).json({
-          success: false,
-          message: 'Email and password are required'
-        });
-      }
-
-      // Find user by email
-      const user = await User.findOne({ 'personalInformation.email': email });
-      
-      // Check if user exists
-      if (!user) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid email or password'
-        });
-      }
-
-      // Check if registration is complete
-      if (!user.registrationComplete) {
-        return res.status(401).json({
-          success: false,
-          message: 'Please complete your registration first'
-        });
-      }
-
-      // Verify password
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid email or password'
-        });
-      }
-
-      // Generate JWT token
-      const token = jwt.sign(
-        { userId: user._id, role: user.role },
-        process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-      );
-
-      // Return success response
-      return res.status(200).json({
-        success: true,
-        data: {
-          token,
-          user: {
-            id: user._id,
-            firstName: user.personalInformation.firstName,
-            lastName: user.personalInformation.lastName,
-            email: user.personalInformation.email,
-            role: user.role
-          }
-        }
-      });
-
-    } catch (error) {
-      console.error('Login error:', error);
-      return res.status(500).json({
-        success: false,
-        message: 'An error occurred during login'
-      });
-    }
-  }
-
-  // Get User Profile
-  async getProfile(req, res) {
-    try {
-      const userId = req.user.id; // From auth middleware
-      const user = await User.findById(userId).select('-password');
-      
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: 'User not found'
-        });
-      }
-
-      res.json({
-        success: true,
-        data: user
-      });
-    } catch (error) {
-      console.error('Get profile error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error fetching profile'
-      });
-    }
-  }
-
-  // Update User Profile
-  async updateProfile(req, res) {
-    try {
-      const userId = req.user.id; // From auth middleware
-      const updateData = req.body;
-
-      // Remove sensitive fields if they exist
-      delete updateData.password;
-      delete updateData._id;
-
-      const user = await User.findByIdAndUpdate(
-        userId,
-        { $set: updateData },
-        { new: true }
-      ).select('-password');
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: 'User not found'
-        });
-      }
-
-      res.json({
-        success: true,
-        data: user
-      });
-    } catch (error) {
-      console.error('Update profile error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error updating profile'
-      });
-    }
-  }
-
-  // Save Job to User Profile
-  async saveJob(req, res) {
-    try {
-      const savedJobs = await userService.saveJob(req.user._id, req.params.jobId);
-
-      return res.json(savedJobs);
-    } catch (error) {
-      res.status(400).json({ message: error.message });
-    }
-  }
-
-  // Unsave Job from User Profile
-  async unsaveJob(req, res) {
-    try {
-      const savedJobs = await userService.unsaveJob(req.user._id, req.params.jobId);
-
-      return res.json(savedJobs);
-    } catch (error) {
-      res.status(400).json({ message: error.message });
-    }
-  }
-
-  // Get All Users
-  async getAllUsers(req, res) {
-    try {
-      const users = await userService.getAllUsers();
-
-      return res.json(users);
-    } catch (error) {
-      res.status(500).json({ message: error.message });
-    }
-  }
-
-  // Get User by ID
-  async getUserById(req, res) {
-    try {
-      const user = await userService.getUserById(req.params.id);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      return res.json(user);
-    } catch (error) {
-      res.status(500).json({ message: error.message });
-    }
-  }
-
-  // Delete User
-  async deleteUser(req, res) {
-    try {
-      await userService.deleteUser(req.params.id);
-
-      return res.json({ message: "User deleted successfully" });
-    } catch (error) {
-      res.status(500).json({ message: error.message });
-    }
-  }
-}
-
-module.exports = new UserController();
+};

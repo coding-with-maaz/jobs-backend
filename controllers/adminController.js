@@ -1,59 +1,104 @@
-const adminService = require('../services/adminService');
+const User = require('../models/User');
 const { validationResult } = require('express-validator');
 
-class AdminController {
-  async register(req, res) {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
+// Get all users (admin only)
+exports.getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find().select('-password');
+    res.json(users);
+  } catch (error) {
+    console.error('Get all users error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get user by ID (admin only)
+exports.getUserById = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json(user);
+  } catch (error) {
+    console.error('Get user by ID error:', error);
+    if (error.kind === 'ObjectId') {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Update user (admin only)
+exports.updateUser = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  const { name, email, role } = req.body;
+
+  try {
+    // Build update object
+    const updateFields = {};
+    if (name) updateFields.name = name;
+    if (email) updateFields.email = email;
+    if (role) updateFields.role = role;
+
+    // Find user
+    let user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Check if email is already in use by another user
+    if (email && email !== user.email) {
+      const existingUser = await User.findOne({ email });
+      if (existingUser) {
+        return res.status(400).json({ message: 'Email already in use' });
       }
-
-      const { name, email, password, adminCode } = req.body;
-      const admin = await adminService.register({ name, email, password, adminCode });
-      res.status(201).json(admin);
-    } catch (error) {
-      res.status(400).json({ message: error.message });
     }
-  }
 
-  async login(req, res) {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
+    // Update user
+    user = await User.findByIdAndUpdate(
+      req.params.id,
+      { $set: updateFields },
+      { new: true }
+    ).select('-password');
 
-      const { email, password } = req.body;
-      const result = await adminService.login(email, password);
-      res.json(result);
-    } catch (error) {
-      res.status(401).json({ message: error.message });
+    res.json({
+      message: 'User updated successfully',
+      user
+    });
+  } catch (error) {
+    console.error('Update user error:', error);
+    if (error.kind === 'ObjectId') {
+      return res.status(404).json({ message: 'User not found' });
     }
+    res.status(500).json({ message: 'Server error' });
   }
+};
 
-  async getProfile(req, res) {
-    try {
-      const admin = await adminService.getProfile(req.user._id);
-      res.json(admin);
-    } catch (error) {
-      res.status(404).json({ message: error.message });
+// Delete user (admin only)
+exports.deleteUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
     }
-  }
 
-  async updateProfile(req, res) {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-
-      const admin = await adminService.updateProfile(req.user._id, req.body);
-      res.json(admin);
-    } catch (error) {
-      res.status(400).json({ message: error.message });
+    // Prevent admin from deleting themselves
+    if (user._id.toString() === req.user.id) {
+      return res.status(400).json({ message: 'Cannot delete your own account' });
     }
-  }
-}
 
-module.exports = new AdminController();
+    await User.findByIdAndRemove(req.params.id);
+    res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    if (error.kind === 'ObjectId') {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.status(500).json({ message: 'Server error' });
+  }
+};

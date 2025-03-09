@@ -1,127 +1,53 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 
-const userSchema = new mongoose.Schema({
-  // Registration Step 1 (Skills)
-  skills: [{
+const UserSchema = new mongoose.Schema({
+  name: {
     type: String,
-    trim: true
-  }],
-  
-  // Registration Step 2 (Basic Info)
-  personalInformation: {
-    firstName: {
-      type: String,
-      trim: true
-    },
-    lastName: {
-      type: String,
-      trim: true
-    },
-    email: {
-      type: String,
-      trim: true,
-      lowercase: true
-    },
-    phone: {
-      type: String,
-      trim: true
-    }
-  },
-  
-  // Registration Step 3 (Bio)
-  bio: {
-    type: String,
+    required: true,
     trim: true
   },
-  
-  // Registration Step 4 (Password)
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    trim: true,
+    lowercase: true
+  },
   password: {
-    type: String
-  },
-  
-  // Additional fields
-  registrationStep: {
-    type: Number,
-    default: 1,
-    min: 1,
-    max: 4
-  },
-  registrationComplete: {
-    type: Boolean,
-    default: false
+    type: String,
+    required: true,
+    minlength: 6
   },
   role: {
     type: String,
     enum: ['user', 'admin'],
     default: 'user'
   },
-  
-  // Optional fields
-  location: {
-    type: String,
-    trim: true
-  },
-  experience: [{
-    title: String,
-    company: String,
-    location: String,
-    from: Date,
-    to: Date,
-    current: Boolean,
-    description: String
-  }],
-  education: [{
-    school: String,
-    degree: String,
-    field: String,
-    from: Date,
-    to: Date,
-    current: Boolean
-  }],
-  savedJobs: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Job'
-  }],
-  avatar: {
-    type: String
+  createdAt: {
+    type: Date,
+    default: Date.now
   }
-}, {
-  timestamps: true
 });
 
-// Remove all previous indexes
-userSchema.pre('save', async function(next) {
+// Hash password before saving
+UserSchema.pre('save', async function(next) {
+  if (!this.isModified('password')) {
+    return next();
+  }
+  
   try {
-    if (this.isModified('personalInformation.email') && 
-        this.personalInformation?.email && 
-        this.registrationStep >= 2) {
-      const existingUser = await this.constructor.findOne({
-        'personalInformation.email': this.personalInformation.email,
-        _id: { $ne: this._id }
-      });
-      
-      if (existingUser) {
-        throw new Error('Email already exists');
-      }
-    }
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
     next();
   } catch (error) {
     next(error);
   }
 });
 
-// Add method to update registration step
-userSchema.methods.updateRegistrationStep = function(step) {
-  this.registrationStep = step;
-  if (step === 4) {
-    this.registrationComplete = true;
-  }
-  return this.save();
+// Method to compare passwords
+UserSchema.methods.comparePassword = async function(candidatePassword) {
+  return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// Add static method to find by tempUserId
-userSchema.statics.findByTempId = function(tempUserId) {
-  return this.findOne({ tempUserId });
-};
-
-module.exports = mongoose.model('User', userSchema);
+module.exports = mongoose.model('User', UserSchema);
