@@ -4,22 +4,24 @@ const jwt = require('jsonwebtoken');
 
 class AdminService {
   async register({ name, email, password, adminCode }) {
-    // Verify admin registration code
+    console.log('Provided adminCode:', adminCode);
+    console.log('Loaded from ENV:', process.env.ADMIN_REGISTRATION_CODE);
+
     if (adminCode !== process.env.ADMIN_REGISTRATION_CODE) {
       throw new Error('Invalid admin registration code');
     }
 
-    // Check if admin already exists
-    const existingAdmin = await User.findOne({ email, role: 'admin' });
+    const existingAdmin = await User.findOne({ 'personalInformation.email': email, role: 'admin' });
     if (existingAdmin) {
       throw new Error('Admin already exists with this email');
     }
 
-    // Create admin account
     const hashedPassword = await bcrypt.hash(password, 10);
     const admin = new User({
-      name,
-      email,
+      personalInformation: {
+        firstName: name,
+        email
+      },
       password: hashedPassword,
       role: 'admin',
       registrationStep: 4,
@@ -27,7 +29,7 @@ class AdminService {
     });
 
     await admin.save();
-    
+
     const token = this._generateToken(admin);
     return {
       token,
@@ -36,7 +38,7 @@ class AdminService {
   }
 
   async login(email, password) {
-    const admin = await User.findOne({ email, role: 'admin' });
+    const admin = await User.findOne({ 'personalInformation.email': email, role: 'admin' });
     if (!admin) {
       throw new Error('Invalid credentials');
     }

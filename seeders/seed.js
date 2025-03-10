@@ -43,7 +43,7 @@ const seedData = async () => {
         date: "2024-12-08",
         company: "Al-Kuwait Restaurant",
         location: "Kuwait City",
-        type: "Full Time",
+        type: "fulltime",
         description: "We are looking for an experienced Kitchen Helper to join our team...",
         requirements: [
           "Minimum 2 years experience in similar role",
